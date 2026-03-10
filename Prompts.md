@@ -19,3 +19,9 @@
 - also make the colors maroon and gold as the main focus colors, and try a less futuristic font and more of a explosive font style
 - I love this! Now can you keep everything graphed, but if i click on them in the legend for the graph it should toggle them on and off, so their graphs should disappear and reappear if i click on them in the legend for the graph
 
+## Readme prompts to generate a clear and concise readme: 
+- Write me a basic readme on how to run those project locally and include this link: https://cf-ai-rocket-analyzer.eshwar-rajasekar.workers.dev/ to try it out hosted. Also mention the example data in example data that can be used to test out this project. 
+-  Include a more specific verison of the readme detailing what exactly is needed for running everything locally 
+
+## Final Takeaways: 
+The most challenging part of this project was bridging the gap between MATLAB's high-frequency output and the LLM's context window. Through iterative prompting, I developed a downsampling strategy and a custom JSON-tagging protocol (<POI>) to ensure the AI could identify GNC anomalies without exceeding its token limit.
