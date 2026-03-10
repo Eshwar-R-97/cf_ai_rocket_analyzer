@@ -1,3 +1,5 @@
+## Prompts given to Gemini (Focused on understanding dependencies, how to utilize workers and generating boilerplate code that was then built upon): 
+
 - first fed Gemini AGENTS.md
 - I want to create a rocket team telemetry data analysis tool that reads in rocket team data live and allows for you to ask questions of an LLM that can find causes behind unexpected data, how would I structure this and can you give me some boilerplate code? 
 - what does wrangler.jsonc do? What is it's purpose in this project? 
@@ -10,3 +12,10 @@
 - I like this project, but I think it would be much more useful if the application presented a graph and answered questions on the graph as well as labeled the graph with possible issues at different times in the run, what is some boilerplate code that I could use to implement that? 
 - okay wait so I have a few things i want to do, one this is only showing the roll error, how about we get the actual roll presented as that's more human readable?
 - when the LLM ingests all the data, have it immediately identify any critical points (points of interest where one or more variables have a significant change or the roll changes due to outside factors such as the fin tab) and at each of these critical change points, there should be a dot labeling them that if you hover over the dot it should display a possible cause for this anomally or change in roll 
+
+## Prompts given to claude (all frontend focused on index.html to make project look nice): 
+- okay now right now the frontend seems a little boring, make it more sleek and rocket like, change the fonts, and make some basic animations of a rocket blasting away to load the website, and jsut generally make the website more sleek and easy to use and understand
+- delete all  emojis from this and give me that version of index.html
+- also make the colors maroon and gold as the main focus colors, and try a less futuristic font and more of a explosive font style
+- I love this! Now can you keep everything graphed, but if i click on them in the legend for the graph it should toggle them on and off, so their graphs should disappear and reappear if i click on them in the legend for the graph
+
