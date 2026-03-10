@@ -1,0 +1,41 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "cf-ai-rocket-analyzer",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-03-01",
+    "assets": {
+        "directory": "./public"
+    },
+    // 1. Add the Workers AI engine binding
+    "ai": {
+        "binding": "AI"
+    },
+    // 2. Rename the generic DO to your specific RocketSession
+    "durable_objects": {
+        "bindings": [
+            {
+                "class_name": "RocketSession",
+                "name": "ROCKET_STATE"
+            }
+        ]
+    },
+    // 3. Update the SQLite storage migration to use the new class name
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "RocketSession"
+            ]
+        }
+    ],
+    "observability": {
+        "enabled": true
+    },
+    "compatibility_flags": [
+        "nodejs_compat"
+    ]
+}

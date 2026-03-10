@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNC Telemetry Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+    
+    <style>
+        body { font-family: system-ui, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        #app-container { width: 100%; max-width: 1000px; background: #1e1e1e; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; flex-direction: column; height: 95vh; overflow: hidden;}
+        header { background: #f38020; color: white; padding: 15px 20px; font-weight: bold; font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center;}
+        
+        .data-panel { background: #252525; padding: 10px 20px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; }
+        .upload-btn { background: #4caf50; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; border: none; transition: 0.2s;}
+        .upload-btn:hover { background: #45a049; }
+        input[type="file"] { display: none; } 
+        
+        #chart-container { height: 35%; padding: 15px; background: #1a1a1a; border-bottom: 2px solid #333; }
+        
+        #chat-box { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #1e1e1e;}
+        .message { padding: 12px 16px; border-radius: 8px; max-width: 85%; line-height: 1.5; }
+        .user-message { background: #2d3748; align-self: flex-end; color: #fff; }
+        .ai-message { background: #2b2b2b; align-self: flex-start; border-left: 4px solid #f38020; }
+        
+        .ai-message p { margin-top: 0; margin-bottom: 10px; }
+        .ai-message p:last-child { margin-bottom: 0; }
+        .ai-message code { font-family: monospace; background: #121212; padding: 2px 4px; border-radius: 3px; color: #f38020;}
+        .ai-message ul { margin: 0; padding-left: 20px; }
+        .ai-message li { margin-bottom: 5px; }
+
+        .input-area { display: flex; padding: 15px; background: #1a1a1a; border-top: 1px solid #333; }
+        input[type="text"] { flex-grow: 1; padding: 12px; border: 1px solid #444; border-radius: 4px; background: #121212; color: white; outline: none; }
+        input[type="text"]:focus { border-color: #f38020; }
+        button { padding: 12px 20px; margin-left: 10px; background: #f38020; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #d96f1a; }
+        .loading { font-style: italic; color: #888; display: none; padding: 10px 20px;}
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <header>
+        <span>🚀 GNC Telemetry AI</span>
+        <span style="font-weight: normal; font-size: 0.9rem;">Llama 3.3 Dashboard</span>
+    </header>
+
+    <div class="data-panel">
+        <span id="memory-status"><strong>Flight Memory:</strong> Awaiting CSV Upload...</span>
+        <label class="upload-btn">
+            Load CSV
+            <input type="file" id="csv-upload" accept=".csv" onchange="handleFileUpload(event)">
+        </label>
+    </div>
+    
+    <div id="chart-container">
+        <canvas id="telemetryChart"></canvas>
+    </div>
+    
+    <div id="chat-box">
+        <div class="message ai-message">Dashboard initialized. Upload a CSV to begin automated GNC anomaly detection and Top-5 labeling.</div>
+    </div>
+    
+    <div id="loading-indicator" class="loading">Processing...</div>
+    
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="e.g., Explain the overshoot peak..." onkeypress="if(event.key === 'Enter') sendMessage()">
+        <button onclick="sendMessage()">Analyze</button>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('telemetryChart').getContext('2d');
+    let poiMap = {}; 
+
+    Chart.defaults.color = '#888';
+    let flightChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [], 
+            datasets: [
+                { label: 'Actual Roll', yAxisID: 'y', data: [], borderColor: '#4fc3f7', borderWidth: 2, pointRadius: 0 },
+                { label: 'Cmd Roll', yAxisID: 'y', data: [], borderColor: '#ffffff', borderDash: [5, 5], pointRadius: 0 },
+                { label: 'Act Servo', yAxisID: 'y1', data: [], borderColor: '#4caf50', borderWidth: 2, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                annotation: { annotations: {} }, 
+                tooltip: {
+                    callbacks: {
+                        footer: (tooltipItems) => {
+                            const t = tooltipItems[0].label;
+                            // Clean lookup for description
+                            const entry = Object.values(poiMap).find(p => Math.abs(p.t - parseFloat(t)) < 0.02);
+                            return entry ? `AI INSIGHT: ${entry.desc}` : '';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Time (s)' }, grid: { color: '#333' } },
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'Roll (deg)' }, grid: { color: '#333' } },
+                y1: { type: 'linear', position: 'right', title: { display: true, text: 'Servo (deg)' }, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+
+    const chatBox = document.getElementById('chat-box');
+    const inputField = document.getElementById('user-input');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    marked.setOptions({ breaks: true });
+
+    function appendMessage(type, text) {
+        const cleanText = text.replace(/<POI>.*?<\/POI>/gs, '');
+        const div = document.createElement('div');
+        div.className = `message ${type}-message`;
+        if (type === 'ai') div.innerHTML = marked.parse(cleanText);
+        else div.innerText = cleanText;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Helper to snap label to the blue line
+    function getRollAtTime(time) {
+        const labels = flightChart.data.labels;
+        const index = labels.findIndex(t => Math.abs(t - time) < 0.03);
+        return index !== -1 ? flightChart.data.datasets[0].data[index] : 0;
+    }
+
+    function applyAnnotations(poiJsonString) {
+        try {
+            const pois = JSON.parse(poiJsonString);
+            const annotations = {};
+            poiMap = {}; // Reset
+
+            pois.forEach((poi, index) => {
+                poiMap[index] = poi;
+                const rollVal = getRollAtTime(poi.t);
+
+                annotations[`poi${index}`] = {
+                    type: 'point',
+                    xValue: poi.t,
+                    yValue: rollVal,
+                    scaleID: 'y',
+                    backgroundColor: '#f38020',
+                    radius: 10,
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    label: {
+                        display: true,
+                        content: poi.label,
+                        backgroundColor: 'rgba(243, 128, 32, 0.9)',
+                        color: '#fff',
+                        font: { size: 11, weight: 'bold' },
+                        position: 'top',
+                        yAdjust: -12,
+                        padding: 6,
+                        borderRadius: 4
+                    }
+                };
+            });
+            flightChart.options.plugins.annotation.annotations = annotations;
+            flightChart.update();
+        } catch (e) {
+            console.error("Failed to parse POIs", e);
+        }
+    }
+
+    async function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        loadingIndicator.innerText = "Ingesting telemetry...";
+        loadingIndicator.style.display = 'block';
+
+        const text = await file.text();
+        const rows = text.split('\n').filter(row => row.trim().length > 0).slice(1);
+        
+        const telemetryData = [];
+        const labels = [], actR = [], cmdR = [], actS = [];
+
+        rows.forEach(row => {
+            const c = row.split(',');
+            const t = parseFloat(c[0]);
+            labels.push(t);
+            actR.push(parseFloat(c[1]));
+            cmdR.push(parseFloat(c[2]));
+            actS.push(parseFloat(c[7]));
+
+            telemetryData.push({
+                timestamp: t, actual_roll: parseFloat(c[1]), cmd_roll: parseFloat(c[2]),
+                baro_alt: parseFloat(c[3]), roll_rate: parseFloat(c[4]),
+                vert_vel: parseFloat(c[5]), servo_cmd: parseFloat(c[6]), servo_act: parseFloat(c[7])
+            });
+        });
+
+        flightChart.data.labels = labels;
+        flightChart.data.datasets[0].data = actR;
+        flightChart.data.datasets[1].data = cmdR;
+        flightChart.data.datasets[2].data = actS;
+        flightChart.update();
+
+        await fetch('/api/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(telemetryData)
+        });
+
+        document.getElementById('memory-status').innerHTML = `<strong>Flight Memory:</strong> ${telemetryData.length} frames active`;
+        
+        loadingIndicator.innerText = "Llama 3.3 identifying Top 5 critical points...";
+        await requestAnalysis("Scan the flight data. Identify exactly 5 critical points of interest including step responses, saturation, and settles.");
+        loadingIndicator.style.display = 'none';
+        event.target.value = '';
+    }
+
+    async function requestAnalysis(query) {
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            });
+            const data = await response.json();
+            
+            const poiMatch = data.answer.match(/<POI>(.*?)<\/POI>/s);
+            if (poiMatch) applyAnnotations(poiMatch[1]);
+            
+            appendMessage('ai', data.answer);
+        } catch (error) {
+            appendMessage('ai', 'Error connecting to the GNC backend.');
+        }
+    }
+
+    function sendMessage() {
+        const query = inputField.value.trim();
+        if (!query) return;
+        appendMessage('user', query);
+        inputField.value = '';
+        loadingIndicator.style.display = 'block';
+        requestAnalysis(query).then(() => loadingIndicator.style.display = 'none');
+    }
+</script>
+
+</body>
+</html>
