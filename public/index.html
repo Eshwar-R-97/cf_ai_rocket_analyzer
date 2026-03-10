@@ -550,6 +550,16 @@
             font-family: var(--font-mono);
             font-size: 0.6rem;
             color: var(--text-mid);
+            cursor: pointer;
+            user-select: none;
+            transition: opacity 0.2s;
+        }
+        .legend-item:hover { opacity: 0.75; }
+        .legend-item.hidden {
+            opacity: 0.3;
+        }
+        .legend-item.hidden .legend-dot {
+            filter: grayscale(1);
         }
         .legend-dot {
             width: 20px;
@@ -940,15 +950,15 @@
             <div class="panel-header">
                 <span class="panel-title"><span class="panel-title-accent">+</span> FLIGHT TELEMETRY PLOT</span>
                 <div class="legend">
-                    <div class="legend-item">
+                    <div class="legend-item" data-index="0">
                         <div class="legend-dot" style="background:#c8a023;"></div>
                         <span>ACT ROLL</span>
                     </div>
-                    <div class="legend-item">
+                    <div class="legend-item" data-index="1">
                         <div class="legend-dot dashed"></div>
                         <span>CMD ROLL</span>
                     </div>
-                    <div class="legend-item">
+                    <div class="legend-item" data-index="2">
                         <div class="legend-dot" style="background:#b02235;"></div>
                         <span>SERVO</span>
                     </div>
@@ -1107,6 +1117,20 @@
                 }
             }
         }
+    });
+
+
+    /* ════════════════════════════════
+       LEGEND TOGGLE
+    ════════════════════════════════ */
+    document.querySelectorAll('.legend-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const index = parseInt(item.dataset.index);
+            const meta = flightChart.getDatasetMeta(index);
+            meta.hidden = !meta.hidden;
+            item.classList.toggle('hidden', meta.hidden);
+            flightChart.update();
+        });
     });
 
 
